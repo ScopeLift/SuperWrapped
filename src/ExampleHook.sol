@@ -11,79 +11,82 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
 
 contract ExampleHook is BaseHook {
-    using PoolIdLibrary for PoolKey;
+  using PoolIdLibrary for PoolKey;
 
-    // NOTE: ---------------------------------------------------------
-    // state variables should typically be unique to a pool
-    // a single hook contract should be able to service multiple pools
-    // ---------------------------------------------------------------
+  // NOTE: ---------------------------------------------------------
+  // state variables should typically be unique to a pool
+  // a single hook contract should be able to service multiple pools
+  // ---------------------------------------------------------------
 
-    mapping(PoolId => uint256 count) public beforeSwapCount;
-    mapping(PoolId => uint256 count) public afterSwapCount;
+  mapping(PoolId => uint256 count) public beforeSwapCount;
+  mapping(PoolId => uint256 count) public afterSwapCount;
 
-    mapping(PoolId => uint256 count) public beforeAddLiquidityCount;
-    mapping(PoolId => uint256 count) public beforeRemoveLiquidityCount;
+  mapping(PoolId => uint256 count) public beforeAddLiquidityCount;
+  mapping(PoolId => uint256 count) public beforeRemoveLiquidityCount;
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
+  constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
 
-    function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
-        return Hooks.Permissions({
-            beforeInitialize: false,
-            afterInitialize: false,
-            beforeAddLiquidity: true,
-            afterAddLiquidity: false,
-            beforeRemoveLiquidity: true,
-            afterRemoveLiquidity: false,
-            beforeSwap: true,
-            afterSwap: true,
-            beforeDonate: false,
-            afterDonate: false,
-            beforeSwapReturnDelta: false,
-            afterSwapReturnDelta: false,
-            afterAddLiquidityReturnDelta: false,
-            afterRemoveLiquidityReturnDelta: false
-        });
-    }
+  function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
+    return Hooks.Permissions({
+      beforeInitialize: false,
+      afterInitialize: false,
+      beforeAddLiquidity: true,
+      afterAddLiquidity: false,
+      beforeRemoveLiquidity: true,
+      afterRemoveLiquidity: false,
+      beforeSwap: true,
+      afterSwap: true,
+      beforeDonate: false,
+      afterDonate: false,
+      beforeSwapReturnDelta: false,
+      afterSwapReturnDelta: false,
+      afterAddLiquidityReturnDelta: false,
+      afterRemoveLiquidityReturnDelta: false
+    });
+  }
 
-    // -----------------------------------------------
-    // NOTE: see IHooks.sol for function documentation
-    // -----------------------------------------------
+  // -----------------------------------------------
+  // NOTE: see IHooks.sol for function documentation
+  // -----------------------------------------------
 
-    function _beforeSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, bytes calldata)
-        internal
-        override
-        returns (bytes4, BeforeSwapDelta, uint24)
-    {
-        beforeSwapCount[key.toId()]++;
-        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
-    }
+  function _beforeSwap(
+    address,
+    PoolKey calldata key,
+    IPoolManager.SwapParams calldata,
+    bytes calldata
+  ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
+    beforeSwapCount[key.toId()]++;
+    return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+  }
 
-    function _afterSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
-        internal
-        override
-        returns (bytes4, int128)
-    {
-        afterSwapCount[key.toId()]++;
-        return (BaseHook.afterSwap.selector, 0);
-    }
+  function _afterSwap(
+    address,
+    PoolKey calldata key,
+    IPoolManager.SwapParams calldata,
+    BalanceDelta,
+    bytes calldata
+  ) internal override returns (bytes4, int128) {
+    afterSwapCount[key.toId()]++;
+    return (BaseHook.afterSwap.selector, 0);
+  }
 
-    function _beforeAddLiquidity(
-        address,
-        PoolKey calldata key,
-        IPoolManager.ModifyLiquidityParams calldata,
-        bytes calldata
-    ) internal override returns (bytes4) {
-        beforeAddLiquidityCount[key.toId()]++;
-        return BaseHook.beforeAddLiquidity.selector;
-    }
+  function _beforeAddLiquidity(
+    address,
+    PoolKey calldata key,
+    IPoolManager.ModifyLiquidityParams calldata,
+    bytes calldata
+  ) internal override returns (bytes4) {
+    beforeAddLiquidityCount[key.toId()]++;
+    return BaseHook.beforeAddLiquidity.selector;
+  }
 
-    function _beforeRemoveLiquidity(
-        address,
-        PoolKey calldata key,
-        IPoolManager.ModifyLiquidityParams calldata,
-        bytes calldata
-    ) internal override returns (bytes4) {
-        beforeRemoveLiquidityCount[key.toId()]++;
-        return BaseHook.beforeRemoveLiquidity.selector;
-    }
+  function _beforeRemoveLiquidity(
+    address,
+    PoolKey calldata key,
+    IPoolManager.ModifyLiquidityParams calldata,
+    bytes calldata
+  ) internal override returns (bytes4) {
+    beforeRemoveLiquidityCount[key.toId()]++;
+    return BaseHook.beforeRemoveLiquidity.selector;
+  }
 }
