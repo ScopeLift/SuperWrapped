@@ -3,9 +3,12 @@ pragma solidity ^0.8.25;
 
 import {SuperchainERC20} from "interop-lib/src/SuperchainERC20.sol";
 import {Ownable} from "@solady/auth/Ownable.sol";
-import {IERC20} from "@openzeppelin-contracts/interfaces/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 
 contract L2NativeSuperchainERC20 is SuperchainERC20, Ownable {
+  using Strings for string;
+
   string private _name;
   string private _symbol;
   uint8 private immutable _decimals;
@@ -14,17 +17,11 @@ contract L2NativeSuperchainERC20 is SuperchainERC20, Ownable {
   event Deposit(address indexed from, uint256 amount);
   event Withdrawal(address indexed to, uint256 amount);
 
-  constructor(
-    address owner_,
-    string memory name_,
-    string memory symbol_,
-    uint8 decimals_,
-    address nativeToken_
-  ) {
-    _name = name_;
-    _symbol = symbol_;
-    _decimals = decimals_;
+  constructor(address owner_, address nativeToken_) {
     _nativeToken = IERC20(nativeToken_);
+    _name = string.concat("SuperWrapped ", _nativeToken.name());
+    _symbol = string.concat("sw", _nativeToken.symbol());
+    _decimals = _nativeToken.decimals();
     _initializeOwner(owner_);
   }
 
