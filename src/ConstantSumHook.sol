@@ -71,21 +71,12 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     // take the input token, as ERC6909, from the PoolManager
     // the debt will be paid by the swapper via the swap router
     // input currency is added to hook's reserves
+    poolManager.mint(address(this), inputCurrency.toId(), amount);
 
     // pay the output token, as ERC6909, to the PoolManager
     // the credit will be forwarded to the swap router, which then forwards it to the swapper
     // output currency is paid from the hook's reserves
-
-	// Sending super in
-    if (!params.zeroForOne) {
-      // IERC20MintableBurnable(Currency.unwrap(inputCurrency)).burn(_sender, amount);
-      //IERC20(Currency.unwrap(inputCurrency)).transfer(_sender, amount);
-	  // poolManager.mint(address(this), inputCurrency.toId(), amount);
-      poolManager.mint(address(this), inputCurrency.toId(), amount);
-    }
-
     poolManager.burn(address(this), outputCurrency.toId(), amount);
-	
 
     int128 tokenAmount = amount.toInt128();
     // return the delta to the PoolManager, so it can process the accounting
@@ -100,8 +91,8 @@ contract ConstantSumHook is BaseHook, SafeCallback {
       ? toBeforeSwapDelta(tokenAmount, -tokenAmount)
       : toBeforeSwapDelta(-tokenAmount, tokenAmount);
 
-	  console2.logInt(BeforeSwapDelta.unwrap(returnDelta));
-	  console2.logBytes4(BaseHook.beforeSwap.selector);
+    console2.logInt(BeforeSwapDelta.unwrap(returnDelta));
+    console2.logBytes4(BaseHook.beforeSwap.selector);
     return (BaseHook.beforeSwap.selector, returnDelta, 0);
   }
 
@@ -129,19 +120,14 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     (address payer, Currency currency0, Currency currency1, uint256 amountPerToken) =
       abi.decode(data, (address, Currency, Currency, uint256));
 
-	  console2.logString("Hi callback");
+    console2.logString("Hi callback");
     // transfer ERC20 to PoolManager
-    poolManager.sync(currency0);
-    IERC20(Currency.unwrap(currency0)).transferFrom(payer, address(poolManager), amountPerToken);
+    poolManager.sync(currency1);
+    IERC20(Currency.unwrap(currency1)).transferFrom(payer, address(poolManager), amountPerToken);
     poolManager.settle();
 
-    // poolManager.sync(currency1);
-    // IERC20Mintable(Currency.unwrap(currency1)).mint(address(this), amountPerToken);
-    // poolManager.settle();
-
     // mint ERC6909 to the hook
-    poolManager.mint(address(this), currency0.toId(), amountPerToken);
-    // poolManager.mint(address(this), currency1.toId(), amountPerToken);
+    poolManager.mint(address(this), currency1.toId(), amountPerToken);
 
     // TODO: mint an LP receipt token
 

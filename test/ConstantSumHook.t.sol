@@ -74,9 +74,10 @@ contract ConstantSumHookTest is Test, Fixtures {
     superchainToken.deposit(amount);
 
     assertEq(superchainToken.balanceOf(address(this)), amount);
-    assertEq(nativeToken0.balanceOf(address(manager)), amount);
+    assertEq(nativeToken0.balanceOf(address(manager)), 1);
     assertEq(superchainToken.balanceOf(address(hook)), 0);
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
+    assertEq(superchainToken.totalSupply(), 1);
   }
 
   function test_withdrawSuper(bool zeroForOne /*, uint256 amount*/) public {
@@ -97,6 +98,35 @@ contract ConstantSumHookTest is Test, Fixtures {
     assertEq(superchainToken.balanceOf(address(hook)), 0);
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
   }
+
+  // Swapping native for super
+  function test_SwapNativeForSuper(bool zeroForOne /*, uint256 amount*/) public {
+    //amount = bound(amount, 1 wei, 1000e18);
+	// liqiuidity exists
+    uint256 amount = 100;
+	uint256 _startBalance = nativeToken0.balanceOf(address(this));
+	_depositNative(amount);
+
+    assertEq(superchainToken.balanceOf(address(this)), amount);
+
+	address swapper = makeAddr("Swapper");
+    MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, 50);
+
+	superchainToken.approve(address(superchainToken), amount);
+	superchainToken.withdraw(amount);
+
+    // assertEq(superchainToken.balanceOf(address(this)), 0);
+    // assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 1);
+    // assertEq(nativeToken0.balanceOf(address(manager)), 0);
+    // assertEq(superchainToken.balanceOf(address(manager)), 0);
+    // // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
+    // assertEq(superchainToken.balanceOf(address(hook)), 0);
+    // assertEq(nativeToken0.balanceOf(address(hook)), 0);
+  }
+
+  // Swapping super for Native
+
+
 
   //   function test_exactOutput(bool zeroForOne, uint256 amount) public {
   //     amount = bound(amount, 1 wei, 1000e18);

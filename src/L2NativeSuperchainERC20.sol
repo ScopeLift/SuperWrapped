@@ -59,25 +59,21 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
 
   // Deposit native tokens to receive wrapped tokens
   function deposit(uint256 _amount) public payable {
-    // poolManager.unlock();
-    // poolManager.swap(key, true, -int256(amount), 0x0);
-    // swap, if no liquidity it should still work going to
-
-	console2.logString("Hi 2");
-	// NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
     NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
-	NATIVE_TOKEN.approve(address(hook), _amount);
+	NATIVE_TOKEN.approve(address(router), _amount);
+    _mint(address(this), _amount);
+	IERC20(address(this)).approve(address(hook), _amount);
 	ConstantSumHook(hook).addLiquidity(key, _amount);
-    // router.swap(
-    //   key,
-    //   IPoolManager.SwapParams({
-    //     zeroForOne: true,
-    //     amountSpecified: int256(_amount),
-    //     sqrtPriceLimitX96: SQRT_PRICE_1_1
-    //   })
-    // );
+    router.swap(
+      key,
+      IPoolManager.SwapParams({
+        zeroForOne: true,
+        amountSpecified: int256(_amount),
+        sqrtPriceLimitX96: SQRT_PRICE_1_1
+      })
+    );
+    IERC20(address(this)).transfer(msg.sender, _amount);
 
-    _mint(msg.sender, _amount);
     emit Deposit(msg.sender, _amount);
   }
 
