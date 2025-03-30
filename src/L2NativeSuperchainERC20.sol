@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {console2} from "forge-std/console2.sol";
 import {SuperchainERC20} from "interop-lib/src/SuperchainERC20.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+
+interface IRouter {
+  function swap(PoolKey memory key, IPoolManager.SwapParams memory params) external payable;
+  function manager() external returns (IPoolManager);
+}
 
 contract L2NativeSuperchainERC20 is SuperchainERC20 {
   using Strings for string;
@@ -15,21 +21,27 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
   uint8 private immutable DECIMALS;
   IERC20 public immutable NATIVE_TOKEN;
   PoolKey public key;
-  IPoolManager public poolManager;
+  IRouter public router;
+  address public hook;
+
+  /// @dev All sqrtPrice calculations are calculated as
+  /// sqrtPriceX96 = floor(sqrt(A / B) * 2 ** 96) where A and B are the currency reserves
+  uint160 public constant SQRT_PRICE_1_1 = 79_228_162_514_264_337_593_543_950_336;
 
   event Deposit(address indexed from, uint256 amount);
   event Withdrawal(address indexed to, uint256 amount);
 
-  constructor(address _nativeToken, address _poolManager) {
+  constructor(address _nativeToken, address _swapRouter) {
     NATIVE_TOKEN = IERC20(_nativeToken);
     NAME = string.concat("SuperWrapped ", NATIVE_TOKEN.name());
     SYMBOL = string.concat("sw", NATIVE_TOKEN.symbol());
     DECIMALS = NATIVE_TOKEN.decimals();
-    poolManager = IPoolManager(_poolManager);
+    router = IRouter(_swapRouter);
   }
 
-  function initialize(PoolKey calldata _key) public {
+  function initialize(PoolKey calldata _key, address _hook) public {
     key = _key;
+	hook = _hook;
   }
 
   function name() public view virtual override returns (string memory) {
@@ -45,12 +57,26 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
   }
 
   // Deposit native tokens to receive wrapped tokens
-  function deposit(uint256 amount) public payable {
-    poolManager.unlock();
-    poolManager.swap(key, true, -int256(amount), 0x0);
-    _mint(msg.sender, amount);
-    NATIVE_TOKEN.transferFrom(msg.sender, address(this), amount);
-    emit Deposit(msg.sender, amount);
+  function deposit(uint256 _amount) public payable {
+    // poolManager.unlock();
+    // poolManager.swap(key, true, -int256(amount), 0x0);
+    // swap, if no liquidity it should still work going to
+
+	console2.logString("Hi 2");
+	NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
+	NATIVE_TOKEN.approve(address(router), _amount);
+    router.swap(
+      key,
+      IPoolManager.SwapParams({
+        zeroForOne: true,
+        amountSpecified: int256(_amount),
+        sqrtPriceLimitX96: SQRT_PRICE_1_1
+      })
+    );
+
+    // _mint(msg.sender, _amount);
+    // NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
+    // emit Deposit(msg.sender, _amount);
   }
 
   // Withdraw native tokens by burning wrapped tokens
@@ -59,5 +85,10 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
     _burn(msg.sender, amount);
     NATIVE_TOKEN.transfer(msg.sender, amount);
     emit Withdrawal(msg.sender, amount);
+  }
+
+  // TODO Add access control
+  function mint(address _to, uint256 _amount) public {
+    _mint(_to, _amount);
   }
 }

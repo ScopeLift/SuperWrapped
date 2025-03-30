@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {console2} from "forge-std/console2.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {BaseHook} from "v4-constant-sum/src/forks/BaseHook.sol";
 import {SafeCallback} from "v4-periphery/src/base/SafeCallback.sol";
@@ -14,6 +15,10 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {SafeCast} from "v4-core/src/libraries/SafeCast.sol";
+
+interface IERC20Mintable {
+  function mint(address _to, uint256 _amount) external;
+}
 
 contract ConstantSumHook is BaseHook, SafeCallback {
   using SafeCast for uint256;
@@ -70,7 +75,13 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     // pay the output token, as ERC6909, to the PoolManager
     // the credit will be forwarded to the swap router, which then forwards it to the swapper
     // output currency is paid from the hook's reserves
-    poolManager.burn(address(this), outputCurrency.toId(), amount);
+    if (params.zeroForOne) {
+      IERC20Mintable(Currency.unwrap(outputCurrency)).mint(address(this), amount);
+      IERC20(Currency.unwrap(outputCurrency)).transfer(address(poolManager), amount);
+      poolManager.donate(key, 0, 1, bytes(""));
+    } else {
+      poolManager.burn(address(this), outputCurrency.toId(), amount);
+	}
 
     int128 tokenAmount = amount.toInt128();
     // return the delta to the PoolManager, so it can process the accounting
@@ -85,6 +96,8 @@ contract ConstantSumHook is BaseHook, SafeCallback {
       ? toBeforeSwapDelta(tokenAmount, -tokenAmount)
       : toBeforeSwapDelta(-tokenAmount, tokenAmount);
 
+	  console2.logInt(BeforeSwapDelta.unwrap(returnDelta));
+	  console2.logBytes4(BaseHook.beforeSwap.selector);
     return (BaseHook.beforeSwap.selector, returnDelta, 0);
   }
 
@@ -112,6 +125,7 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     (address payer, Currency currency0, Currency currency1, uint256 amountPerToken) =
       abi.decode(data, (address, Currency, Currency, uint256));
 
+	  console2.logString("Hi callback");
     // transfer ERC20 to PoolManager
     poolManager.sync(currency0);
     IERC20(Currency.unwrap(currency0)).transferFrom(payer, address(poolManager), amountPerToken);
