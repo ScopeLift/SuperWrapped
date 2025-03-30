@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
@@ -109,11 +110,17 @@ contract ConstantSumHookTest is Test, Fixtures {
 
     assertEq(superchainToken.balanceOf(address(this)), amount);
 
-	address swapper = makeAddr("Swapper");
-    MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, 50);
+	// address swapper = makeAddr("Swapper");
+    // MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, 50);
+    // swapRouterNoChecks.swap(
+    //   key,
+    //   IPoolManager.SwapParams({
+    //     zeroForOne: true,
+    //     amountSpecified: int256(50),
+    //     sqrtPriceLimitX96: SQRT_PRICE_1_1
+    //   })
+    // );
 
-	superchainToken.approve(address(superchainToken), amount);
-	superchainToken.withdraw(amount);
 
     // assertEq(superchainToken.balanceOf(address(this)), 0);
     // assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 1);

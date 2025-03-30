@@ -76,7 +76,11 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     // pay the output token, as ERC6909, to the PoolManager
     // the credit will be forwarded to the swap router, which then forwards it to the swapper
     // output currency is paid from the hook's reserves
-    poolManager.burn(address(this), outputCurrency.toId(), amount);
+	if (outputCurrency.balanceOf(address(this)) == 0) {
+			IERC20MintableBurnable(Currency.unwrap(outputCurrency)).mint(_sender, amount);
+	} else {
+      poolManager.burn(address(this), outputCurrency.toId(), amount);
+	}
 
     int128 tokenAmount = amount.toInt128();
     // return the delta to the PoolManager, so it can process the accounting
