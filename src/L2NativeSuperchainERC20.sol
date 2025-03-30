@@ -7,6 +7,7 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Strings} from "@openzeppelin-contracts/utils/Strings.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {ConstantSumHook} from "src/ConstantSumHook.sol";
 
 interface IRouter {
   function swap(PoolKey memory key, IPoolManager.SwapParams memory params) external payable;
@@ -63,26 +64,40 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
     // swap, if no liquidity it should still work going to
 
 	console2.logString("Hi 2");
-	NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
-	NATIVE_TOKEN.approve(address(router), _amount);
-    router.swap(
-      key,
-      IPoolManager.SwapParams({
-        zeroForOne: true,
-        amountSpecified: int256(_amount),
-        sqrtPriceLimitX96: SQRT_PRICE_1_1
-      })
-    );
+	// NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
+    NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
+	NATIVE_TOKEN.approve(address(hook), _amount);
+	ConstantSumHook(hook).addLiquidity(key, _amount);
+    // router.swap(
+    //   key,
+    //   IPoolManager.SwapParams({
+    //     zeroForOne: true,
+    //     amountSpecified: int256(_amount),
+    //     sqrtPriceLimitX96: SQRT_PRICE_1_1
+    //   })
+    // );
 
-    // _mint(msg.sender, _amount);
-    // NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
-    // emit Deposit(msg.sender, _amount);
+    _mint(msg.sender, _amount);
+    emit Deposit(msg.sender, _amount);
   }
 
   // Withdraw native tokens by burning wrapped tokens
   function withdraw(uint256 amount) public {
     require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-    _burn(msg.sender, amount);
+	IERC20(address(this)).approve(address(router), amount);
+    IERC20(address(this)).transferFrom(msg.sender, address(this), amount);
+
+    router.swap(
+      key,
+      IPoolManager.SwapParams({
+        zeroForOne: false,
+        amountSpecified: int256(amount),
+        sqrtPriceLimitX96: SQRT_PRICE_1_1
+      })
+    );
+
+
+    _burn(address(router.manager()), amount);
     NATIVE_TOKEN.transfer(msg.sender, amount);
     emit Withdrawal(msg.sender, amount);
   }
@@ -91,4 +106,10 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
   function mint(address _to, uint256 _amount) public {
     _mint(_to, _amount);
   }
+
+  // TODO Add access control
+  function burn(address _from, uint256 _amount) public {
+    _burn(_from, _amount);
+  }
+
 }

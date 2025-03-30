@@ -16,8 +16,9 @@ import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/src/types/BeforeSwapDe
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {SafeCast} from "v4-core/src/libraries/SafeCast.sol";
 
-interface IERC20Mintable {
+interface IERC20MintableBurnable {
   function mint(address _to, uint256 _amount) external;
+  function burn(address _from, uint256 _amount) external;
 }
 
 contract ConstantSumHook is BaseHook, SafeCallback {
@@ -51,7 +52,7 @@ contract ConstantSumHook is BaseHook, SafeCallback {
 
   /// @notice Constant sum swap via custom accounting, tokens are exchanged 1:1
   function _beforeSwap(
-    address,
+    address _sender,
     PoolKey calldata key,
     IPoolManager.SwapParams calldata params,
     bytes calldata
@@ -70,18 +71,21 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     // take the input token, as ERC6909, from the PoolManager
     // the debt will be paid by the swapper via the swap router
     // input currency is added to hook's reserves
-    poolManager.mint(address(this), inputCurrency.toId(), amount);
 
     // pay the output token, as ERC6909, to the PoolManager
     // the credit will be forwarded to the swap router, which then forwards it to the swapper
     // output currency is paid from the hook's reserves
-    if (params.zeroForOne) {
-      IERC20Mintable(Currency.unwrap(outputCurrency)).mint(address(this), amount);
-      IERC20(Currency.unwrap(outputCurrency)).transfer(address(poolManager), amount);
-      poolManager.donate(key, 0, 1, bytes(""));
-    } else {
-      poolManager.burn(address(this), outputCurrency.toId(), amount);
-	}
+
+	// Sending super in
+    if (!params.zeroForOne) {
+      // IERC20MintableBurnable(Currency.unwrap(inputCurrency)).burn(_sender, amount);
+      //IERC20(Currency.unwrap(inputCurrency)).transfer(_sender, amount);
+	  // poolManager.mint(address(this), inputCurrency.toId(), amount);
+      poolManager.mint(address(this), inputCurrency.toId(), amount);
+    }
+
+    poolManager.burn(address(this), outputCurrency.toId(), amount);
+	
 
     int128 tokenAmount = amount.toInt128();
     // return the delta to the PoolManager, so it can process the accounting
@@ -131,13 +135,13 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     IERC20(Currency.unwrap(currency0)).transferFrom(payer, address(poolManager), amountPerToken);
     poolManager.settle();
 
-    poolManager.sync(currency1);
-    IERC20(Currency.unwrap(currency1)).transferFrom(payer, address(poolManager), amountPerToken);
-    poolManager.settle();
+    // poolManager.sync(currency1);
+    // IERC20Mintable(Currency.unwrap(currency1)).mint(address(this), amountPerToken);
+    // poolManager.settle();
 
     // mint ERC6909 to the hook
     poolManager.mint(address(this), currency0.toId(), amountPerToken);
-    poolManager.mint(address(this), currency1.toId(), amountPerToken);
+    // poolManager.mint(address(this), currency1.toId(), amountPerToken);
 
     // TODO: mint an LP receipt token
 

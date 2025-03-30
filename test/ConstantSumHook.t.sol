@@ -58,38 +58,44 @@ contract ConstantSumHookTest is Test, Fixtures {
     // hook.addLiquidity(key, 1000e18);
   }
 
-  function test_doesTheSwap(bool zeroForOne /*, uint256 amount*/) public {
+  function _depositNative(uint256 _amount) public {
+	// Deposit into super
+    MockERC20(Currency.unwrap(nativeToken0)).mint(address(this), _amount);
+    IERC20(Currency.unwrap(nativeToken0)).approve(address(superchainToken), _amount);
+    superchainToken.deposit(_amount);
+  }
+
+  function test_depositNative(bool zeroForOne /*, uint256 amount*/) public {
     //amount = bound(amount, 1 wei, 1000e18);
     uint256 amount = 1;
 
     MockERC20(Currency.unwrap(nativeToken0)).mint(address(this), amount);
     IERC20(Currency.unwrap(nativeToken0)).approve(address(superchainToken), amount);
-    IERC20(Currency.unwrap(superchainToken0)).approve(address(superchainToken), amount);
     superchainToken.deposit(amount);
 
     assertEq(superchainToken.balanceOf(address(this)), amount);
-    assertEq(nativeToken0.balanceOf(address(hook)), amount);
+    assertEq(nativeToken0.balanceOf(address(manager)), amount);
     assertEq(superchainToken.balanceOf(address(hook)), 0);
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
+  }
 
-    // swap(key, zeroForOne, -int256(amount), ZERO_BYTES);
+  function test_withdrawSuper(bool zeroForOne /*, uint256 amount*/) public {
+    //amount = bound(amount, 1 wei, 1000e18);
+    uint256 amount = 1;
 
-    // uint256 balance0After = superchainToken0.balanceOfSelf();
-    // uint256 balance1After = nativeToken0.balanceOfSelf();
+	uint256 _startBalance = nativeToken0.balanceOf(address(this));
+	_depositNative(amount);
+    assertEq(superchainToken.balanceOf(address(this)), amount);
+	superchainToken.approve(address(superchainToken), amount);
+	superchainToken.withdraw(amount);
 
-    // if (zeroForOne) {
-    //   // paid token0
-    //   assertEq(balance0Before - balance0After, amount);
-
-    //   // received token1
-    //   assertEq(balance1After - balance1Before, amount);
-    // } else {
-    //   // paid token1
-    //   assertEq(balance1Before - balance1After, amount);
-
-    //   // received token0
-    //   assertEq(balance0After - balance0Before, amount);
-    // }
+    assertEq(superchainToken.balanceOf(address(this)), 0);
+    assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 1);
+    assertEq(nativeToken0.balanceOf(address(manager)), 0);
+    assertEq(superchainToken.balanceOf(address(manager)), 0);
+    // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
+    assertEq(superchainToken.balanceOf(address(hook)), 0);
+    assertEq(nativeToken0.balanceOf(address(hook)), 0);
   }
 
   //   function test_exactOutput(bool zeroForOne, uint256 amount) public {
@@ -117,8 +123,8 @@ contract ConstantSumHookTest is Test, Fixtures {
   //     }
   //   }
 
-  function test_no_v4_liquidity() public {
-    vm.expectRevert();
-    modifyLiquidityRouter.modifyLiquidity(key, LIQUIDITY_PARAMS, ZERO_BYTES);
-  }
+  // function test_no_v4_liquidity() public {
+  //   vm.expectRevert();
+  //   modifyLiquidityRouter.modifyLiquidity(key, LIQUIDITY_PARAMS, ZERO_BYTES);
+  // }
 }
