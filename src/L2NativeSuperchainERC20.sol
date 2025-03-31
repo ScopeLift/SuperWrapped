@@ -42,7 +42,7 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
 
   function initialize(PoolKey calldata _key, address _hook) public {
     key = _key;
-	hook = _hook;
+    hook = _hook;
   }
 
   function name() public view virtual override returns (string memory) {
@@ -60,10 +60,9 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
   // Deposit native tokens to receive wrapped tokens
   function deposit(uint256 _amount) public payable {
     NATIVE_TOKEN.transferFrom(msg.sender, address(this), _amount);
-	NATIVE_TOKEN.approve(address(router), _amount);
-    _mint(address(this), _amount);
-	IERC20(address(this)).approve(address(hook), _amount);
-	ConstantSumHook(hook).addLiquidity(key, _amount);
+    NATIVE_TOKEN.approve(address(router), _amount);
+    IERC20(address(this)).approve(address(hook), _amount);
+    // ConstantSumHook(hook).addLiquidity(key, _amount);
     router.swap(
       key,
       IPoolManager.SwapParams({
@@ -80,7 +79,7 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
   // Withdraw native tokens by burning wrapped tokens
   function withdraw(uint256 amount) public {
     require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-	IERC20(address(this)).approve(address(router), amount);
+    IERC20(address(this)).approve(address(router), amount);
     IERC20(address(this)).transferFrom(msg.sender, address(this), amount);
 
     router.swap(
@@ -91,7 +90,6 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
         sqrtPriceLimitX96: SQRT_PRICE_1_1
       })
     );
-
 
     _burn(address(router.manager()), amount);
     NATIVE_TOKEN.transfer(msg.sender, amount);
@@ -107,5 +105,4 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
   function burn(address _from, uint256 _amount) public {
     _burn(_from, _amount);
   }
-
 }

@@ -100,7 +100,7 @@ contract ConstantSumHookTest is Test, Fixtures {
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
   }
 
-  // Swapping native for super
+  // Swapping super for Native
   function test_SwapNativeForSuper(bool zeroForOne /*, uint256 amount*/) public {
     //amount = bound(amount, 1 wei, 1000e18);
 	// liqiuidity exists
@@ -110,28 +110,74 @@ contract ConstantSumHookTest is Test, Fixtures {
 
     assertEq(superchainToken.balanceOf(address(this)), amount);
 
-	// address swapper = makeAddr("Swapper");
-    // MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, 50);
-    // swapRouterNoChecks.swap(
-    //   key,
-    //   IPoolManager.SwapParams({
-    //     zeroForOne: true,
-    //     amountSpecified: int256(50),
-    //     sqrtPriceLimitX96: SQRT_PRICE_1_1
-    //   })
-    // );
+	address swapper = makeAddr("Swapper");
+	vm.startPrank(swapper);
+    MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, 50);
+    assertEq(MockERC20(Currency.unwrap(nativeToken0)).balanceOf(swapper), 50);
+	MockERC20(Currency.unwrap(nativeToken0)).approve(address(swapRouterNoChecks), 50);
+    swapRouterNoChecks.swap(
+      key,
+      IPoolManager.SwapParams({
+        zeroForOne: true,
+        amountSpecified: int256(50),
+        sqrtPriceLimitX96: SQRT_PRICE_1_1
+      })
+    );
+	vm.stopPrank();
 
 
-    // assertEq(superchainToken.balanceOf(address(this)), 0);
-    // assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 1);
-    // assertEq(nativeToken0.balanceOf(address(manager)), 0);
-    // assertEq(superchainToken.balanceOf(address(manager)), 0);
-    // // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
-    // assertEq(superchainToken.balanceOf(address(hook)), 0);
-    // assertEq(nativeToken0.balanceOf(address(hook)), 0);
+
+
+    assertEq(superchainToken.balanceOf(address(this)), 100);
+    assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 0);
+    assertEq(superchainToken.balanceOf(swapper), 50);
+    assertEq(nativeToken0.balanceOf(swapper), 0);
+
+    assertEq(nativeToken0.balanceOf(address(manager)), 150);
+    assertEq(superchainToken.balanceOf(address(manager)), 0);
+    // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
+    assertEq(superchainToken.balanceOf(address(hook)), 0);
+    assertEq(nativeToken0.balanceOf(address(hook)), 0);
   }
+  // Swapping native for super
+  // function test_SwapNativeForSuper(bool zeroForOne /*, uint256 amount*/) public {
+  //   //amount = bound(amount, 1 wei, 1000e18);
+  //   // liqiuidity exists
+  //   uint256 amount = 100;
+  //   uint256 _startBalance = nativeToken0.balanceOf(address(this));
+  //   _depositNative(amount);
 
-  // Swapping super for Native
+  //   assertEq(superchainToken.balanceOf(address(this)), amount);
+
+  //   address swapper = makeAddr("Swapper");
+  //   vm.startPrank(swapper);
+  //   superchainToken.mint(swapper, 50);
+  //   superchainToken.approve(address(swapRouterNoChecks), 50);
+  //   swapRouterNoChecks.swap(
+  //     key,
+  //     IPoolManager.SwapParams({
+  //       zeroForOne: false,
+  //       amountSpecified: int256(50),
+  //       sqrtPriceLimitX96: SQRT_PRICE_1_1
+  //     })
+  //   );
+  //   vm.stopPrank();
+
+  //   assertEq(superchainToken.balanceOf(address(this)), 100);
+  //   assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 0);
+  //   assertEq(superchainToken.balanceOf(swapper), 50);
+  //   assertEq(nativeToken0.balanceOf(swapper), 0);
+
+  //   assertEq(nativeToken0.balanceOf(address(manager)), 150);
+  //   assertEq(superchainToken.balanceOf(address(manager)), 0);
+  //   // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
+  //   assertEq(superchainToken.balanceOf(address(hook)), 0);
+  //   assertEq(nativeToken0.balanceOf(address(hook)), 0);
+  // }
+
+
+
+
 
 
 

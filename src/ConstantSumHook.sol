@@ -51,6 +51,7 @@ contract ConstantSumHook is BaseHook, SafeCallback {
   }
 
   /// @notice Constant sum swap via custom accounting, tokens are exchanged 1:1
+  /// assume currency0 is native
   function _beforeSwap(
     address _sender,
     PoolKey calldata key,
@@ -72,15 +73,23 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     // the debt will be paid by the swapper via the swap router
     // input currency is added to hook's reserves
     poolManager.mint(address(this), inputCurrency.toId(), amount);
+	// If the input is supertokens we should burn them
+	// if (!zeroForOne) {
+    //   poolManager.sync(outputCurrency);
+    //   IERC20MintableBurnable(Currency.unwrap(inputCurrency)).burn(address(poolManager), amount);
+    //   poolManager.settle();
+	// }
 
     // pay the output token, as ERC6909, to the PoolManager
     // the credit will be forwarded to the swap router, which then forwards it to the swapper
     // output currency is paid from the hook's reserves
-	if (outputCurrency.balanceOf(address(this)) == 0) {
-			IERC20MintableBurnable(Currency.unwrap(outputCurrency)).mint(_sender, amount);
-	} else {
+    if (poolManager.balanceOf(address(this), outputCurrency.toId()) == 0) {
+      poolManager.sync(outputCurrency);
+      IERC20MintableBurnable(Currency.unwrap(outputCurrency)).mint(address(poolManager), amount);
+      poolManager.settle();
+    } else {
       poolManager.burn(address(this), outputCurrency.toId(), amount);
-	}
+    }
 
     int128 tokenAmount = amount.toInt128();
     // return the delta to the PoolManager, so it can process the accounting
