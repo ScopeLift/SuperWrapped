@@ -13,3 +13,6 @@
 [submodule "lib/uniswap-hooks"]
 	path = lib/uniswap-hooks
 	url = https://github.com/openzeppelin/uniswap-hooks
+[submodule "lib/v4-constant-sum"]
+	path = lib/v4-constant-sum
+	url = https://github.com/saucepoint/v4-constant-sum
