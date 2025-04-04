@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {console2} from "forge-std/console2.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {BaseHook} from "v4-constant-sum/src/forks/BaseHook.sol";
 import {SafeCallback} from "v4-periphery/src/base/SafeCallback.sol";
@@ -72,20 +71,17 @@ contract ConstantSumHook is BaseHook, SafeCallback {
     // take the input token, as ERC6909, from the PoolManager
     // the debt will be paid by the swapper via the swap router
     // input currency is added to hook's reserves
-    poolManager.mint(address(this), inputCurrency.toId(), amount);
 	// If the input is supertokens we should burn them
-	// if (!zeroForOne) {
-    //   poolManager.sync(outputCurrency);
-    //   IERC20MintableBurnable(Currency.unwrap(inputCurrency)).burn(address(poolManager), amount);
-    //   poolManager.settle();
-	// }
+	poolManager.mint(address(this), inputCurrency.toId(), amount);
 
     // pay the output token, as ERC6909, to the PoolManager
     // the credit will be forwarded to the swap router, which then forwards it to the swapper
     // output currency is paid from the hook's reserves
-    if (poolManager.balanceOf(address(this), outputCurrency.toId()) == 0) {
+	uint256 _balance = poolManager.balanceOf(address(this), outputCurrency.toId());
+    if (params.zeroForOne && ((amount > _balance) || _balance == 0)  ) {
+      poolManager.burn(address(this), outputCurrency.toId(), _balance);
       poolManager.sync(outputCurrency);
-      IERC20MintableBurnable(Currency.unwrap(outputCurrency)).mint(address(poolManager), amount);
+      IERC20MintableBurnable(Currency.unwrap(outputCurrency)).mint(address(poolManager), amount - _balance);
       poolManager.settle();
     } else {
       poolManager.burn(address(this), outputCurrency.toId(), amount);
@@ -104,8 +100,6 @@ contract ConstantSumHook is BaseHook, SafeCallback {
       ? toBeforeSwapDelta(tokenAmount, -tokenAmount)
       : toBeforeSwapDelta(-tokenAmount, tokenAmount);
 
-    console2.logInt(BeforeSwapDelta.unwrap(returnDelta));
-    console2.logBytes4(BaseHook.beforeSwap.selector);
     return (BaseHook.beforeSwap.selector, returnDelta, 0);
   }
 
@@ -127,23 +121,5 @@ contract ConstantSumHook is BaseHook, SafeCallback {
   /// @param amountPerToken The amount of each token to be added as liquidity
   function addLiquidity(PoolKey calldata key, uint256 amountPerToken) external {
     poolManager.unlock(abi.encode(msg.sender, key.currency0, key.currency1, amountPerToken));
-  }
-
-  function _unlockCallback(bytes calldata data) internal virtual override returns (bytes memory) {
-    (address payer, Currency currency0, Currency currency1, uint256 amountPerToken) =
-      abi.decode(data, (address, Currency, Currency, uint256));
-
-    console2.logString("Hi callback");
-    // transfer ERC20 to PoolManager
-    poolManager.sync(currency1);
-    IERC20(Currency.unwrap(currency1)).transferFrom(payer, address(poolManager), amountPerToken);
-    poolManager.settle();
-
-    // mint ERC6909 to the hook
-    poolManager.mint(address(this), currency1.toId(), amountPerToken);
-
-    // TODO: mint an LP receipt token
-
-    return "";
   }
 }

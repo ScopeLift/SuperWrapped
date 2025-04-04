@@ -91,7 +91,7 @@ contract L2NativeSuperchainERC20 is SuperchainERC20 {
       })
     );
 
-    _burn(address(router.manager()), amount);
+    // _burn(address(router.manager()), amount);
     NATIVE_TOKEN.transfer(msg.sender, amount);
     emit Withdrawal(msg.sender, amount);
   }

@@ -52,162 +52,84 @@ contract ConstantSumHookTest is Test, Fixtures {
     key = PoolKey(nativeToken0, superchainToken0, 3000, 60, IHooks(hook));
     manager.initialize(key, SQRT_PRICE_1_1);
     superchainToken.initialize(key, address(hook));
-
-    // Seed liquidity
-    // IERC20(Currency.unwrap(superchainToken0)).approve(address(hook), 1000e18);
-    // IERC20(Currency.unwrap(nativeToken0)).approve(address(hook), 1000e18);
-    // hook.addLiquidity(key, 1000e18);
   }
 
   function _depositNative(uint256 _amount) public {
-	// Deposit into super
+    // Deposit into super
     MockERC20(Currency.unwrap(nativeToken0)).mint(address(this), _amount);
     IERC20(Currency.unwrap(nativeToken0)).approve(address(superchainToken), _amount);
     superchainToken.deposit(_amount);
   }
 
-  function test_depositNative(bool zeroForOne /*, uint256 amount*/) public {
-    //amount = bound(amount, 1 wei, 1000e18);
-    uint256 amount = 1;
+  function testFuzz_depositNative(uint256 _amount) public {
+    _amount = bound(_amount, 1 wei, 10_000_000_000e18);
 
-    MockERC20(Currency.unwrap(nativeToken0)).mint(address(this), amount);
-    IERC20(Currency.unwrap(nativeToken0)).approve(address(superchainToken), amount);
-    superchainToken.deposit(amount);
+    MockERC20(Currency.unwrap(nativeToken0)).mint(address(this), _amount);
+    IERC20(Currency.unwrap(nativeToken0)).approve(address(superchainToken), _amount);
+    superchainToken.deposit(_amount);
 
-    assertEq(superchainToken.balanceOf(address(this)), amount);
-    assertEq(nativeToken0.balanceOf(address(manager)), 1);
+    assertEq(superchainToken.balanceOf(address(this)), _amount);
+    assertEq(nativeToken0.balanceOf(address(manager)), _amount);
     assertEq(superchainToken.balanceOf(address(hook)), 0);
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
-    assertEq(superchainToken.totalSupply(), 1);
+    assertEq(superchainToken.totalSupply(), _amount);
   }
 
-  function test_withdrawSuper(bool zeroForOne /*, uint256 amount*/) public {
-    //amount = bound(amount, 1 wei, 1000e18);
-    uint256 amount = 1;
+  function testFuzz_withdrawSuper(uint256 _amount) public {
+    _amount = bound(_amount, 1 wei, 10_000_000_000e18);
 
-	uint256 _startBalance = nativeToken0.balanceOf(address(this));
-	_depositNative(amount);
-    assertEq(superchainToken.balanceOf(address(this)), amount);
-	superchainToken.approve(address(superchainToken), amount);
-	superchainToken.withdraw(amount);
+    uint256 _startBalance = nativeToken0.balanceOf(address(this));
+    _depositNative(_amount);
+    assertEq(superchainToken.balanceOf(address(this)), _amount);
+    superchainToken.approve(address(superchainToken), _amount);
+    superchainToken.withdraw(_amount);
 
     assertEq(superchainToken.balanceOf(address(this)), 0);
-    assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 1);
+    assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, _amount);
     assertEq(nativeToken0.balanceOf(address(manager)), 0);
-    assertEq(superchainToken.balanceOf(address(manager)), 0);
-    // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
+    assertEq(superchainToken.balanceOf(address(manager)), _amount);
     assertEq(superchainToken.balanceOf(address(hook)), 0);
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
   }
 
-  // Swapping super for Native
-  function test_SwapNativeForSuper(bool zeroForOne /*, uint256 amount*/) public {
-    //amount = bound(amount, 1 wei, 1000e18);
-	// liqiuidity exists
-    uint256 amount = 100;
-	uint256 _startBalance = nativeToken0.balanceOf(address(this));
-	_depositNative(amount);
+  function testFuzz_SwapNativeForSuper(uint256 _initialNativeDepositAmount, uint256 _swapAmount)
+    public
+  {
+    _swapAmount = bound(_swapAmount, 1 wei, 10_000_000_000e18);
+    _initialNativeDepositAmount = bound(_initialNativeDepositAmount, _swapAmount, 10_000_000_000e18);
+    address swapper = makeAddr("Swapper");
 
-    assertEq(superchainToken.balanceOf(address(this)), amount);
+    uint256 _startBalance = nativeToken0.balanceOf(address(this));
+    _depositNative(_initialNativeDepositAmount);
+    assertEq(superchainToken.balanceOf(address(this)), _initialNativeDepositAmount);
 
-	address swapper = makeAddr("Swapper");
-	vm.startPrank(swapper);
-    MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, 50);
-    assertEq(MockERC20(Currency.unwrap(nativeToken0)).balanceOf(swapper), 50);
-	MockERC20(Currency.unwrap(nativeToken0)).approve(address(swapRouterNoChecks), 50);
+    vm.startPrank(swapper);
+    MockERC20(Currency.unwrap(nativeToken0)).mint(swapper, _swapAmount);
+    assertEq(MockERC20(Currency.unwrap(nativeToken0)).balanceOf(swapper), _swapAmount);
+    MockERC20(Currency.unwrap(nativeToken0)).approve(address(swapRouterNoChecks), _swapAmount);
     swapRouterNoChecks.swap(
       key,
       IPoolManager.SwapParams({
         zeroForOne: true,
-        amountSpecified: int256(50),
+        amountSpecified: int256(_swapAmount),
         sqrtPriceLimitX96: SQRT_PRICE_1_1
       })
     );
-	vm.stopPrank();
+    vm.stopPrank();
 
-
-
-
-    assertEq(superchainToken.balanceOf(address(this)), 100);
+    assertEq(superchainToken.balanceOf(address(this)), _initialNativeDepositAmount);
     assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 0);
-    assertEq(superchainToken.balanceOf(swapper), 50);
+    assertEq(superchainToken.balanceOf(swapper), _swapAmount);
     assertEq(nativeToken0.balanceOf(swapper), 0);
 
-    assertEq(nativeToken0.balanceOf(address(manager)), 150);
+    assertEq(nativeToken0.balanceOf(address(manager)), _initialNativeDepositAmount + _swapAmount);
     assertEq(superchainToken.balanceOf(address(manager)), 0);
-    // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
     assertEq(superchainToken.balanceOf(address(hook)), 0);
     assertEq(nativeToken0.balanceOf(address(hook)), 0);
   }
-  // Swapping native for super
-  // function test_SwapNativeForSuper(bool zeroForOne /*, uint256 amount*/) public {
-  //   //amount = bound(amount, 1 wei, 1000e18);
-  //   // liqiuidity exists
-  //   uint256 amount = 100;
-  //   uint256 _startBalance = nativeToken0.balanceOf(address(this));
-  //   _depositNative(amount);
 
-  //   assertEq(superchainToken.balanceOf(address(this)), amount);
-
-  //   address swapper = makeAddr("Swapper");
-  //   vm.startPrank(swapper);
-  //   superchainToken.mint(swapper, 50);
-  //   superchainToken.approve(address(swapRouterNoChecks), 50);
-  //   swapRouterNoChecks.swap(
-  //     key,
-  //     IPoolManager.SwapParams({
-  //       zeroForOne: false,
-  //       amountSpecified: int256(50),
-  //       sqrtPriceLimitX96: SQRT_PRICE_1_1
-  //     })
-  //   );
-  //   vm.stopPrank();
-
-  //   assertEq(superchainToken.balanceOf(address(this)), 100);
-  //   assertEq(nativeToken0.balanceOf(address(this)) - _startBalance, 0);
-  //   assertEq(superchainToken.balanceOf(swapper), 50);
-  //   assertEq(nativeToken0.balanceOf(swapper), 0);
-
-  //   assertEq(nativeToken0.balanceOf(address(manager)), 150);
-  //   assertEq(superchainToken.balanceOf(address(manager)), 0);
-  //   // assertEq(nativeToken0.balanceOf(address(address(this))), 0);
-  //   assertEq(superchainToken.balanceOf(address(hook)), 0);
-  //   assertEq(nativeToken0.balanceOf(address(hook)), 0);
-  // }
-
-
-
-
-
-
-
-  //   function test_exactOutput(bool zeroForOne, uint256 amount) public {
-  //     amount = bound(amount, 1 wei, 1000e18);
-  //     uint256 balance0Before = superchainToken0.balanceOfSelf();
-  //     uint256 balance1Before = nativeToken0.balanceOfSelf();
-
-  //     swap(key, zeroForOne, int256(amount), ZERO_BYTES);
-
-  //     uint256 balance0After = superchainToken0.balanceOfSelf();
-  //     uint256 balance1After = nativeToken0.balanceOfSelf();
-
-  //     if (zeroForOne) {
-  //       // paid token0
-  //       assertEq(balance0Before - balance0After, amount);
-
-  //       // received token1
-  //       assertEq(balance1After - balance1Before, amount);
-  //     } else {
-  //       // paid token1
-  //       assertEq(balance1Before - balance1After, amount);
-
-  //       // received token0
-  //       assertEq(balance0After - balance0Before, amount);
-  //     }
-  //   }
-
-  // function test_no_v4_liquidity() public {
-  //   vm.expectRevert();
-  //   modifyLiquidityRouter.modifyLiquidity(key, LIQUIDITY_PARAMS, ZERO_BYTES);
-  // }
+  function test_RvertIf_ModifyingLiquidity() public {
+    vm.expectRevert();
+    modifyLiquidityRouter.modifyLiquidity(key, LIQUIDITY_PARAMS, ZERO_BYTES);
+  }
 }
